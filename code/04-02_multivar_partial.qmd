@@ -372,7 +372,8 @@ Some analysis do the normalization for you (like PCA), and others don't (like k-
 
 Since both PCA and k-means only take numerical variables, let's select them now.  
 ```{r selecting only numerical vars}
-weather_n 
+weather_n <- weather %>%
+  dplyr::select(-c(year:strength_gtex))
 
 weather_n
 ```
@@ -402,12 +403,15 @@ Some PCA properties:
 - The goal is to select a small number of PCs that explain a minimum threshold of the total variance (e.g., 70%).  
 
 ```{r pca in action}
+library(knitr)
 knitr::include_graphics("https://miro.medium.com/v2/resize:fit:1200/1*V4H3Cu8qGr_90WANKSO9BA.gif")
 ```
 Let's run PCA for our weather data.  
 
 ```{r pca model}
-mod_pca 
+mod_pca <- prcomp(weather_n, scale. = T)  #scale. = T  makes the pca do scaling or normalized by itself
+mod_pca
+summary(mod_pca)
 
 ```
 
@@ -415,6 +419,7 @@ mod_pca
 Based on scree plot (total variance):  
 ```{r pca checking number of components}
 # Scree plot
+fviz_eig(mod_pca, addlabels = T)
 
 ```
     
@@ -423,6 +428,12 @@ This indicates that original variables were correlated (as we expected).
 
 If wanted to use enough PCs to explain 70% of total variance, how many would we need?  
 ```{r PCs to explain 70pct variance}
+mod_pca %>%
+  get_eig()%>%
+  mutate(pc = 1:nrow(.)) %>%
+  ggplot(aes(x = pc, y=cumulative.variance.percent))+
+  geom_bar(stat = "identity")+
+  geom_hline(yintercept = 70)
 
 
 ```
@@ -452,7 +463,7 @@ mod_pca$rotation %>%
 Which variables contributed most to PC1, regardless of direction?  
 
 ```{r variables contributing to PC1}
-
+#fviz_contrib(mod_pca)
 ```
   
 Let's check the eigenvectors for both PCs 1 and 2 variables:  
@@ -461,7 +472,8 @@ Let's check the eigenvectors for both PCs 1 and 2 variables:
 fviz_pca_var(mod_pca, 
              col.var = "contrib", # Color by contributions to the PC
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
+             repel = TRUE,     # Avoid text overlapping,
+             select.var = list(contrib=5)
              )
 
 ```
@@ -471,6 +483,8 @@ The longer is the eigenvector for a given variable, the more important it is tow
 Let's plot PC1 vs PC2 scores, look for any groupings.  
 
 ```{r PC1 vs PC2}
+fviz_pca_ind(mod_pca, 
+             label = F)
 
 ```
   
@@ -488,18 +502,21 @@ Let's add the first 4 PCs to our original dataset and run a regression versus gr
 
 ```{r pca scores}
 # Extract first 4 PCs scores
-pca_scores 
+pca_scores <- mod_pca$x %>%
+  as.data.frame()%>%
+  dplyr::select(PC1:PC4)
 
 pca_scores
 ```
 
 ```{r pca regression}
 # Adding PCs 1-4 scores to original data set
-weather_postpca 
+weather_postpca <- weather %>%
+  bind_cols(pca_scores)
 
 # Regression of yield ~ PCs
 
-lm_pca 
+lm_pca <- lm(strength_gtex~PC1 +PC2+PC3+PC4, data = weather_postpca)
 
 # Summary  
 summary(lm_pca)
@@ -508,11 +525,14 @@ summary(lm_pca)
 
 ```{r pca regression}
 # Checking VIF
-
+vif(lm_pca)
 ```
 
 ```{r pca regression plots}
 # Plotting strength vs PC1
+ggplot(weather_postpca, aes(x = PC1, y= strength_gtex))+
+  geom_point()+
+  geom_smooth(method = "lm")
 
 ```
 
