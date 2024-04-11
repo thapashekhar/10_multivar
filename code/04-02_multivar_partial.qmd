@@ -594,7 +594,8 @@ k-means does not normalize our data for us like PCA did, so we will need to do t
 
 ```{r}
 # normalizing the data
-weather_norm  
+weather_norm  <- weather_n %>%
+  mutate(across(everything(),~scale(.x)))
 
 weather_norm
 ```
@@ -604,7 +605,7 @@ Any thoughts?
 Let's try 2.  
 
 ```{r kmeans model }
-mod_km 
+mod_km <- kmeans(weather_norm, centers = 6, nstart = 10)
 
 mod_km
 ```
@@ -613,6 +614,7 @@ Since the choice of k can be subjective, we will need to find an objective way t
 
 ```{r choosing k - total error}
 # Total error x k
+fviz_nbclust(weather_norm, method = "wss", k.max =10, FUNcluster = kmeans)
 
 ```
 
@@ -632,14 +634,18 @@ silhouette: k=4
 Let's go with 4 clusters.  
 
 ```{r mod_km4 }
-mod_km4 
+mod_km4 <- kmeans(weather_norm, centers =4, nstart = 10)
 
 mod_km4
 ```
 
 How many observations per cluster?
 ```{r}
-
+weather %>%
+  mutate (cluster = mod_km4$cluster)%>%
+  group_by(cluster) %>%
+  tally()
+  
 ```
 
 Now how can we visually inspect the resutls of k-means?  
@@ -674,6 +680,7 @@ We could actually run ANOVA models for each original variable of the form
 and extract cluster mean and pairwise comparison to understand what variables had significant differences among clusters.  
 
 ```{r kmeans PCA plot}
+fviz_cluster(mod_km4, data = weather_norm)
 
 ```
   
